@@ -3,83 +3,94 @@ import os                            # for using directory paths
 from PIL import Image
 import numpy as np
 import cv2
+from transforms import table_transform as tt
+import random
+import time
+random.seed(int(time.time()))
 
 # collect directory paths
-#img_dir = 'UNLV/jpeg transformed images'
-xml_source_dir = '/home/annus/Desktop/Folders/labeled data'
 img_source_dir = '/home/annus/Desktop/Folders/full data set Images'
-#checksource_dir = 'UNLV/unlv-table-png'
-#checkdest_dir = 'UNLV/checkimg'
-imgdest_dir = '/home/annus/Desktop/Folders/staples/resized images'
-xmldest_dir = '/home/annus/Desktop/Folders/staples/xmls'
+xml_source_dir = '/home/annus/Desktop/Folders/new staples simplified annotations'
+train_img_dest = '/home/annus/Desktop/Folders/project/staples/staples_separated_train_data/resized_images'
+eval_img_dest = '/home/annus/Desktop/Folders/project/staples/staples_separated_eval_data/resized_images'
+train_transformed_dir = '/home/annus/Desktop/Folders/project/staples/staples_separated_train_data/transformed'
+eval_transformed_dir = '/home/annus/Desktop/Folders/project/staples/staples_separated_eval_data/transformed'
+train_xml_dest = '/home/annus/Desktop/Folders/project/staples/staples_separated_train_data/resized_xmls'
+eval_xml_dest = '/home/annus/Desktop/Folders/project/staples/staples_separated_eval_data/resized_xmls'
+
+Size = 400, 400
 xml_list = os.listdir(xml_source_dir)
-
-xmls = [xml for xml in xml_list if xml.endswith('.xml')]
-
-#imgs = os.listdir(img_dir)
-total = len(xmls)
-print('total xmls = ', total)
-scale = 400
-Size = scale, scale
+image_list = [file for file in os.listdir(img_source_dir) if not file.endswith('.xml')]
+xml_list = [file for file in os.listdir(xml_source_dir) if file.endswith('.xml')]
+random.shuffle(xml_list)
+total = len(xml_list)
+split = 800
+print('total xmls = {}'.format(total))
 i = 0
 
-for file_name in xml_list:
-  
-    i += 1
-    
-    # remove the filename extenstion of '.jpg'
+for file_name in xml_list:    
+    # remove the filename extenstion
     this_xml = os.path.join(xml_source_dir, file_name)
     name_without_extention, _ = os.path.splitext(file_name)
 
-    this_img = os.path.join(img_source_dir, name_without_extention + '.jpg')
-
+    this_img = os.path.join(img_source_dir, name_without_extention + '.png')
+    if not os.path.isfile(this_img):
+        this_img = os.path.join(img_source_dir, name_without_extention + '.jpg')
     if not os.path.isfile(this_img):
         this_img = os.path.join(img_source_dir, name_without_extention + '.jpeg')
-
     if not os.path.isfile(this_img):
         this_img = os.path.join(img_source_dir, name_without_extention + '.JPG')
-
     if not os.path.isfile(this_img):
         this_img = os.path.join(img_source_dir, name_without_extention + '.JPEG')
-
+    
     if os.path.isfile(this_img) and os.path.isfile(this_xml):
-
         try:
             prev_tree = et.parse(this_xml)
             prev_root = prev_tree.getroot()
-
         except et.ParseError:
-            print('missing ', this_xml, ' file')
+            print('error in  ', this_xml, ' file')
             continue
+
+        depth = prev_root.find('size').find('depth').text
+        if depth == '3': 
+            i += 1  
+        else: 
+            print(file_name, "skipped")
+            continue
+
+        # remove spaces from names
+        new_name = 'image' + str(i)
 
         # resize the image
         PILimg = Image.open(this_img)
         Pwidth, Pheight = PILimg.size
-        PILimg.thumbnail(Size, Image.ANTIALIAS)
+        PILimg = PILimg.resize(Size, Image.ANTIALIAS) 
         Nwidth, Nheight = PILimg.size
-        new_img = os.path.join(imgdest_dir, name_without_extention) + '.jpg'
-        PILimg.save(new_img)
+        if i <= split:
+            new_img = os.path.join(train_img_dest, new_name) + '.jpg'
+        else:
+            new_img = os.path.join(eval_img_dest, new_name) + '.jpg'
+        PILimg.save(new_img)    
 
-        #PILimg = Image.open(os.path.join(checksource_dir, name_without_extention) + '.png')
-        #PILimg.thumbnail(Size, Image.ANTIALIAS)
-        #PILimg.save(os.path.join(checkdest_dir, name_without_extention) + '.jpg')        
-
-        # start with a new xml file and just plug in the existing coordinate values into it                                                         
+        # create a new xml file and just plug in the existing coordinate values into it                                                         
         root = et.Element('annotation')
         et.SubElement(root, 'folder').text = "Staples"
-        et.SubElement(root, 'filename').text = name_without_extention + '.jpg'
-
+        et.SubElement(root, 'filename').text = new_name + '.jpg'
+ 
         source = et.SubElement(root, 'source')
         et.SubElement(source, 'database').text = "Staples data set"
         et.SubElement(source, 'annotation').text = "Staples"
         et.SubElement(source, 'image').text = "flickr"
 
         size = et.SubElement(root, 'size')
-        img = cv2.imread(new_img, -1)
-        try:
-            height, width, channels = img.shape
-        except ValueError:
-            print(this_img, ' has a problem')
+        imag = cv2.imread(new_img, 0)   # LOAD AS GRAY SCALE IMAGE
+        (thresh, im_bw) = cv2.threshold(imag, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        tr_image = tt(im_bw, 0.3)
+        if i <= split:
+            cv2.imwrite(os.path.join(train_transformed_dir, new_name) + '.jpg', tr_image)
+        else:
+            cv2.imwrite(os.path.join(eval_transformed_dir, new_name) + '.jpg', tr_image)
+        height, width, channels = (400, 400, 3)
         et.SubElement(size, 'width').text = str(width)
         et.SubElement(size, 'height').text = str(height)
         et.SubElement(size, 'depth').text = str(channels)
@@ -89,7 +100,6 @@ for file_name in xml_list:
         # get all tables
         objects = prev_root.findall('.//object')
         for child in objects:
-            # child = prev_root[k]
             _object = et.SubElement(root, 'object')
             et.SubElement(_object, 'name').text = 'table'
             et.SubElement(_object, 'pose').text = 'Frontal'
@@ -114,17 +124,19 @@ for file_name in xml_list:
             et.SubElement(_object, 'difficult').text = str(0)
 
         tree = et.ElementTree(root)
-        tree.write(os.path.join(xmldest_dir, name_without_extention) + '.xml')
+        if i <= split:
+            tree.write(os.path.join(train_xml_dest, new_name) + '.xml')
+        else:
+            tree.write(os.path.join(eval_xml_dest, new_name) + '.xml')
     
     else:
         print(this_img, ' not found')    
 
     # verbose
-    if i % 10 == 0:
-        print(i ,'/', total, ' done')
+    print(i ,'in training data', ' done') if i <= split else print(i, 'in eval data')
 
-    #if i == 4:
-    #    break
+    if i == 40:
+        pass
 
 
 

@@ -3,8 +3,12 @@ import cv2
 import os                            # for using directory paths
 import random
 import time                          # for seeding the random number generator
-
+import math
+import numpy as np
+import math
+from scipy.spatial import distance
 random.seed(int(time.time()))
+
 # for colorful boxes!
 red = (0, 0, 255)
 blue = (255, 0, 0)
@@ -16,29 +20,50 @@ pink = (255, 105, 180)
 colors = [blue, green, red, orange, gold, aqua, pink]
 random.shuffle(colors)
 
-# collect directory paths
-img_dir = '/home/annus/Desktop/Folders/staples/resized images'
-xml_dir = '/home/annus/Desktop/Folders/staples/xmls'
-dest_dir = '/home/annus/Desktop/Folders/staples/bounded images'
+# CREDITS: Taken from @cristianpb.github.io
+def rotate_box(image, bb, size_original, theta):
+    (h, w) = size_original
+    (cx, cy) = (w // 2, h // 2)
+    new_bb = list(bb)
+    for i, coord in enumerate(bb):
+        # opencv calculates standard transformation matrix
+        M = cv2.getRotationMatrix2D((cx, cy), theta, 1.0)
+        # Grab  the rotation components of the matrix)
+        cos = np.abs(M[0, 0])
+        sin = np.abs(M[0, 1])
+        # compute the new bounding dimensions of the image
+        nW = int((h * sin) + (w * cos))
+        nH = int((h * cos) + (w * sin))
+        # adjust the rotation matrix to take into account translation
+        M[0, 2] += (nW / 2) - cx
+        M[1, 2] += (nH / 2) - cy
+        # Prepare the vector to be transformed
+        v = [coord[0],coord[1],1]
+        # Perform the actual rotation and return the image
+        calculated = np.dot(M,v)
+        new_bb[i] = (calculated[0],calculated[1])
+    return new_bb
 
-total = len(os.listdir(img_dir))
-print('total images= ', total)
-i = 0
+def my_own_rotation_routine(original_size, point, angle):
+    '''cos = math.cos(angle)
+                sin = math.sin(angle)
+                rot_mat = np.matrix([[cos, -sin], [sin, cos]])'''
+    (h,w) = original_size
+    cx, cy = w/2., h/2.
+    center = (cx, cy)
+    x, y = point
+    radius = distance.euclidean(point, center)
+    print('radius: {:.2f}'.format(radius))
+    new_point = (radius*math.cos(angle), radius*(math.sin(angle)))
+    '''point = np.asarray(point) 
+                new_point = np.transpose(np.matmul(rot_mat, point))
+                print(new_point)'''
+    print (new_point)
+    return new_point
 
-for file_name in os.listdir(img_dir):
-  
-    i += 1
-    
-    # remove the filename extenstion of '.png'
-    name_without_extention, _ = os.path.splitext(file_name)
-
-    # read the image, without any change
-    im = cv2.imread(img_dir + '/' + file_name, -1)
-
-    # find the coordinates of b_box from the corresponding xml file
-    this_xml = xml_dir + '/' + name_without_extention + '.xml'
-    if os.path.isfile(this_xml):
-        tree = et.parse(this_xml)
+def draw_box(image, xml, original_size, angle, isrotated=False):
+    if os.path.isfile(xml):
+        tree = et.parse(xml)
         root = tree.getroot()
         objects = root.findall('.//object')
         for object_ in objects:
@@ -46,15 +71,59 @@ for file_name in os.listdir(img_dir):
             y_min = int(object_.find('bndbox').find('ymin').text)
             x_max = int(object_.find('bndbox').find('xmax').text)
             y_max = int(object_.find('bndbox').find('ymax').text)
+            
+            # define the bounding box
+            # print(x_min, y_min, x_max, y_max)
+            bb = [(x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)]
+            if isrotated: 
+                x_min, y_min = my_own_rotation_routine(original_size, (x_min, y_min), angle)
+                x_max, y_max = my_own_rotation_routine(original_size, (x_max, y_max), angle)
+
+            # (x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max) = new_bb
+            # draw the bounding box
+            cv2.rectangle(image, (int(x_min), int(y_min)), (int(x_max), int(y_max)), blue, 4)
+            return image
+
+def main():
+    # collect directory paths
+    img_dir = '/home/annus/Desktop/Folders/project/staples/staples_separated_train_data/resized_images'
+    xml_dir = '/home/annus/Desktop/Folders/project/staples/staples_separated_train_data/resized_xmls'
+    dest_dir = '/home/annus/Desktop/Folders/project/staples/staples_separated_train_data/check_boxes'
+
+    total = len(os.listdir(img_dir))
+    print('total images= ', total)
+    i = 0
+
+    for file_name in os.listdir(img_dir):
+      
+        i += 1
         
-            # draw the bounding box and put in the folder
-            color = random.choice(colors)
-            cv2.rectangle(im, (x_min, y_min), (x_max, y_max), color, 1)
-        cv2.imwrite(dest_dir + '/' + 'bounded_' + file_name, im)
-        
-    # verbose
-    if i % 10 == 0:
-        print(i ,'/', total, ' done')
+        # remove the filename extenstion of '.png'
+        name_without_extention, _ = os.path.splitext(file_name)
+
+        # read the image, without any change
+        im = cv2.imread(img_dir + '/' + file_name, -1)
+
+        # find the coordinates of b_box from the corresponding xml file
+        this_xml = xml_dir + '/' + name_without_extention + '.xml'
+        if os.path.isfile(this_xml):
+            tree = et.parse(this_xml)
+            root = tree.getroot()
+            objects = root.findall('.//object')
+            for object_ in objects:
+                x_min = int(object_.find('bndbox').find('xmin').text)
+                y_min = int(object_.find('bndbox').find('ymin').text)
+                x_max = int(object_.find('bndbox').find('xmax').text)
+                y_max = int(object_.find('bndbox').find('ymax').text)
+            
+                # draw the bounding box and put in the folder
+                color = random.choice(colors)
+                cv2.rectangle(im, (x_min, y_min), (x_max, y_max), color, 1)
+            cv2.imwrite(dest_dir + '/' + 'bounded_' + file_name, im)
+            
+        # verbose
+        if i % 10 == 0:
+            print(i ,'/', total, ' done')
         
 
 

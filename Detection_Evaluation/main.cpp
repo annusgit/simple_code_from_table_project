@@ -205,7 +205,12 @@ int main(int argc, char *argv[]) {
     int totalGtBoxes = 0;
 
     int z = 0;
+    int count = 0;
     for (auto i:groundTruthIds) {
+        count++;
+        if (count == 101)
+            break;
+        cout << count << " ";
         ifstream ifs(gtDir + i + ".txt");
         string gtContent((istreambuf_iterator<char>(ifs)),
                          (istreambuf_iterator<char>()));
