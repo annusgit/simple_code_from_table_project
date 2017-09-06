@@ -1,0 +1,4 @@
+/home/annus/Downloads/clion-2017.2/bin/cmake/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - Unix Makefiles" /home/annus/Desktop/Folders/project/Detection_Evaluation
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/annus/Desktop/Folders/project/Detection_Evaluation/cmake-build-debug
