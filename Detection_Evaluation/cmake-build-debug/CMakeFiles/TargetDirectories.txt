@@ -1,0 +1,3 @@
+/home/annus/Desktop/Folders/project/Detection_Evaluation/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/annus/Desktop/Folders/project/Detection_Evaluation/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/annus/Desktop/Folders/project/Detection_Evaluation/cmake-build-debug/CMakeFiles/Visualizer.dir
