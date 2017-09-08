@@ -37,10 +37,7 @@ Possible Values: {}'.format(direction, directions))
             raise KeyError('Invalid key \'{}\' keys'.format(key))
         
 
-def rotate():
-    log('total images: {}'.format(len(images)))
-    for i, image_name in enumerate(images, 1):
-        im = cv2.imread(os.path.join(path_to_folder, image_name), 1)
+def rotate(im):
         cv2.namedWindow('image', cv2.WINDOW_NORMAL)
         cv2.resizeWindow('image', 800, 800)
         cv2.moveWindow('image', 0, 0)
