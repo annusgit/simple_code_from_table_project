@@ -37,19 +37,49 @@ Possible Values: {}'.format(direction, directions))
             raise KeyError('Invalid key \'{}\' keys'.format(key))
         
 
+def rotate():
+    log('total images: {}'.format(len(images)))
+    for i, image_name in enumerate(images, 1):
+        im = cv2.imread(os.path.join(path_to_folder, image_name), 1)
+        cv2.namedWindow('image', cv2.WINDOW_NORMAL)
+        cv2.resizeWindow('image', 800, 800)
+        cv2.moveWindow('image', 0, 0)
+        cv2.imshow('image', im)
+        new_image = im.copy()
+        saved = False
+        read_key = cv2.waitKey(33)
+        while not saved:
+            while read_key == -1: read_key = cv2.waitKey(33)
+            if read_key is 0xFF & ord('r'):
+                new_image = imutils.rotate(new_image, -90)
+                cv2.namedWindow('image', cv2.WINDOW_NORMAL)
+                cv2.resizeWindow('image', 800, 800)
+                cv2.moveWindow('image', 0, 0)
+                cv2.imshow('image', new_image)
+                read_key = -1
+                time.sleep(0.1)
+            if read_key is 0xFF & ord('s'):
+                cv2.imwrite(os.path.join(dest_folder, image_name), new_image)
+                verbose = 'image#'+str(i+1)+' saved'
+                log(verbose, cute=True)
+                saved = True
+                read_key = -1
+                time.sleep(0.1)
+    log()
+
 def main():
     parser = argparse.ArgumentParser(description='this file augments obj_det dataset')
-    parser.add_argument('--image_folder', type=str, dest='image_folder',
+    parser.add_argument('--if', '--image_folder', type=str, dest='image_folder',
         help='image folder')
-    parser.add_argument('--xml_folder', type=str, dest='xml_folder',
+    parser.add_argument('--xf', '--xml_folder', type=str, dest='xml_folder',
         help='xml folder')
-    parser.add_argument('--image_dest_folder', type=str, dest='image_dest_folder',
+    parser.add_argument('--idf', '--image_dest_folder', type=str, dest='image_dest_folder',
         help='image destination folder')
-    parser.add_argument('--xml_dest_folder', type=str, dest='xml_dest_folder',
+    parser.add_argument('--xdf', '--xml_dest_folder', type=str, dest='xml_dest_folder',
         help='xml destination folder')
     args = parser.parse_args()
 
-    images_folder = args.image_folder
+    images_folder = args.image_folder 
     xmls_folder = args.xml_folder
     images_dest = args.image_dest_folder
     xmls_dest = args.xml_dest_folder
