@@ -198,7 +198,7 @@ def translate(image, xml_root, displacement_tuple=(0.0, 0.0)):
 
 
 def perform_augmentation(images_folder, xmls_folder, 
-    im_dest_folder, xmls_dest_folder, bounded_folder=None):
+    im_dest_folder, xmls_dest_folder, rot=True, trans=True, bounded_folder=None):
     xmls_list = os.listdir(xmls_folder)
     total = len(xmls_list)
     log('xmls list acquired')
@@ -213,32 +213,69 @@ def perform_augmentation(images_folder, xmls_folder,
         log('on image ({} of {})'.format(idx, total), cute=True)
 
         # rotate the image
-        for i in range(-10, 10, 1):
-            new_image, new_coords = rotate(image=this_image, xml_root=this_xml, theta=float(i))
-            new_name = '{}_{}_rotated'.format(name, str(i))
-            cv2.imwrite(os.path.join(im_dest_folder, new_name+'.jpg'), new_image)
-            new_root = set_coords(root, new_coords)
-            new_root = set_file_name(new_root, new_name+'.xml')
-            new_tree = et.ElementTree(new_root)
-            new_tree.write(os.path.join(xmls_dest_folder, new_name+'.xml'))
-            if bounded_folder:
-                bounded_image = draw_box(image=new_image, coords=new_coords, pen_width=2)
-                cv2.imwrite(os.path.join(bounded_folder, new_name+'.jpg'), bounded_image)
+        if rotate:
+            for i in range(-10, 10, 2):
+                new_image, new_coords = rotate(image=this_image, xml_root=this_xml, theta=float(i))
+                new_name = 'rot_{}_{}'.format(name, str(i))
+                cv2.imwrite(os.path.join(im_dest_folder, new_name+'.jpg'), new_image)
+                new_root = set_coords(root, new_coords)
+                new_root = set_file_name(new_root, new_name+'.xml')
+                new_tree = et.ElementTree(new_root)
+                new_tree.write(os.path.join(xmls_dest_folder, new_name+'.xml'))
+                if bounded_folder:
+                    bounded_image = draw_box(image=new_image, coords=new_coords, pen_width=2)
+                    cv2.imwrite(os.path.join(bounded_folder, new_name+'.jpg'), bounded_image)
 
         # translate the image
-        for i in range(-10, 10, 1): 
-            new_image, new_coords = translate(image=this_image, xml_root=this_xml, 
-                displacement_tuple=(float(i), float(i)))
-            new_name = '{}_{}_translated'.format(name, str(i))
-            cv2.imwrite(os.path.join(im_dest_folder, new_name+'.jpg'), new_image)
-            new_root = set_coords(root, new_coords)
-            new_root = set_file_name(new_root, new_name+'.xml')
-            new_tree = et.ElementTree(new_root)
-            new_tree.write(os.path.join(xmls_dest_folder, new_name+'.xml'))
-            if bounded_folder:
-                bounded_image = draw_box(image=new_image, coords=new_coords, pen_width=2)
-                cv2.imwrite(os.path.join(bounded_folder, new_name+'.jpg'), bounded_image)
+        if translate:
+            for i in range(-50, 50, 5): 
+                new_image, new_coords = translate(image=this_image, xml_root=this_xml, 
+                    displacement_tuple=(float(i), float(i)))
+                new_name = 'trans_1_{}_{}'.format(name, str(i))
+                cv2.imwrite(os.path.join(im_dest_folder, new_name+'.jpg'), new_image)
+                new_root = set_coords(root, new_coords)
+                new_root = set_file_name(new_root, new_name+'.xml')
+                new_tree = et.ElementTree(new_root)
+                new_tree.write(os.path.join(xmls_dest_folder, new_name+'.xml'))
+                if bounded_folder:
+                    bounded_image = draw_box(image=new_image, coords=new_coords, pen_width=2)
+                    cv2.imwrite(os.path.join(bounded_folder, new_name+'.jpg'), bounded_image)
 
+                new_image, new_coords = translate(image=this_image, xml_root=this_xml, 
+                    displacement_tuple=(float(i), float(-i)))
+                new_name = 'trans_2_{}_{}'.format(name, str(i))
+                cv2.imwrite(os.path.join(im_dest_folder, new_name+'.jpg'), new_image)
+                new_root = set_coords(root, new_coords)
+                new_root = set_file_name(new_root, new_name+'.xml')
+                new_tree = et.ElementTree(new_root)
+                new_tree.write(os.path.join(xmls_dest_folder, new_name+'.xml'))
+                if bounded_folder:
+                    bounded_image = draw_box(image=new_image, coords=new_coords, pen_width=2)
+                    cv2.imwrite(os.path.join(bounded_folder, new_name+'.jpg'), bounded_image)
+
+                new_image, new_coords = translate(image=this_image, xml_root=this_xml, 
+                    displacement_tuple=(float(-i), float(i)))
+                new_name = 'trans_3_{}_{}'.format(name, str(i))
+                cv2.imwrite(os.path.join(im_dest_folder, new_name+'.jpg'), new_image)
+                new_root = set_coords(root, new_coords)
+                new_root = set_file_name(new_root, new_name+'.xml')
+                new_tree = et.ElementTree(new_root)
+                new_tree.write(os.path.join(xmls_dest_folder, new_name+'.xml'))
+                if bounded_folder:
+                    bounded_image = draw_box(image=new_image, coords=new_coords, pen_width=2)
+                    cv2.imwrite(os.path.join(bounded_folder, new_name+'.jpg'), bounded_image)
+
+                new_image, new_coords = translate(image=this_image, xml_root=this_xml, 
+                    displacement_tuple=(float(-i), float(-i)))
+                new_name = 'trans_4_{}_{}'.format(name, str(i))
+                cv2.imwrite(os.path.join(im_dest_folder, new_name+'.jpg'), new_image)
+                new_root = set_coords(root, new_coords)
+                new_root = set_file_name(new_root, new_name+'.xml')
+                new_tree = et.ElementTree(new_root)
+                new_tree.write(os.path.join(xmls_dest_folder, new_name+'.xml'))
+                if bounded_folder:
+                    bounded_image = draw_box(image=new_image, coords=new_coords, pen_width=2)
+                    cv2.imwrite(os.path.join(bounded_folder, new_name+'.jpg'), bounded_image)
 
 def main():
     parser = argparse.ArgumentParser(description='this file augments obj_det dataset')
