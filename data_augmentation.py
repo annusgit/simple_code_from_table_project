@@ -231,6 +231,7 @@ if __name__ == '__main__':
         i += 1
         if cv2.waitKey(33) == 0xFF & ord('q'):
             break
+            
     log()
 
 
