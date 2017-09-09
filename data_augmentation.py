@@ -4,7 +4,8 @@ Author: Annus Zulfiqar
 Program: data_augmentation.py 
 Date: 07-09-17
 Usage: Meant for doing some handy data augmentation on small object detection datasets 
-Calling: Pass it the images, annotations and the destination folders  
+Calling: Pass it the images, annotations, their destination folders and one more folder
+         for seeing the results
 """
 
 import os 
@@ -54,12 +55,16 @@ def get_coords(root):
     
 def set_coords(root, coords):
     objects = root.findall('.//object')
-    for object_ in objects:
-        x_min = int(object_.find('bndbox').find('xmin').text)
-        y_min = int(object_.find('bndbox').find('ymin').text)
-        x_max = int(object_.find('bndbox').find('xmax').text)
-        y_max = int(object_.find('bndbox').find('ymax').text)
-        coords.append(tuple((x_min, y_min, x_max, y_max)))
+    for object_, coord in zip(objects, coords):
+        object_.find('bndbox').find('xmin').text = str(coord[0])
+        object_.find('bndbox').find('ymin').text = str(coord[1])
+        object_.find('bndbox').find('xmax').text = str(coord[2])
+        object_.find('bndbox').find('ymax').text = str(coord[3])
+    return root
+
+
+def set_file_name(root, file_name):
+    root.find('filename').text = file_name
     return root
 
 
@@ -68,29 +73,6 @@ def get_4_corners(coords):
     return [tuple((coord[0], coord[1], coord[2], coord[1],
         coord[2], coord[3], coord[0], coord[3])) for coord in coords]
 
-
-# translates the image by x, as well as the bounding_box in the direction passed as
-# a keyword arguement
-def translate(**kwargs):
-    if len(kwargs) is not 4:
-        raise ValueError('{} args passed. 4 needed'.format(len(locals())))
-    directions = ['up', 'down', 'right', 'left']
-    for key in kwargs:
-        if key is 'image':
-            image_array = kwargs[key]
-        elif key is 'coords':
-            coords = kwargs[key]
-            x_min, y_min, x_max, y_max = map(int, coords)
-        elif key is 'displacement':
-            x = kwargs[key]
-        elif key is 'direction':
-            direction = kwargs[key]
-            if direction not in directions:
-                raise ValueError('Invalid value \'{}\' in direction.\n\
-Possible Values: {}'.format(direction, directions))
-        else: 
-            raise KeyError('Invalid key \'{}\' keys'.format(key))
-        
 
 def rotate_image(im):
     cv2.namedWindow('image', cv2.WINDOW_NORMAL)
@@ -127,7 +109,6 @@ def rotate_box(coords, size_original, Matrix=None, theta=None):
     for corners in all_corners:
         (w, h) = size_original
         (cx, cy) = ((w-1) // 2, (h-1) // 2)
-        # for i, coord in enumerate(bb):
         # opencv calculates standard transformation matrix
         M = cv2.getRotationMatrix2D((cx, cy), theta, 1.0) if Matrix is None else Matrix
         # Grab  the rotation components of the matrix)
@@ -141,19 +122,12 @@ def rotate_box(coords, size_original, Matrix=None, theta=None):
         M[1, 2] += ((nH-1) / 2) - cy
         #1 Prepare the vector to be transformed
         v = [corners[0],corners[1],1]
-        # Perform the actual rotation and return the image
         calculated_1 = np.dot(M,v)
-        #2 Prepare the vector to be transformed
         v = [corners[2],corners[3],1]
-        # Perform the actual rotation and return the image
         calculated_2 = np.dot(M,v)
-        #1 Prepare the vector to be transformed
         v = [corners[4],corners[5],1]
-        # Perform the actual rotation and return the image
         calculated_3 = np.dot(M,v)
-        #2 Prepare the vector to be transformed
         v = [corners[6],corners[7],1]
-        # Perform the actual rotation and return the image
         calculated_4 = np.dot(M,v)
         x_min = int(min(calculated_1[0], calculated_2[0], calculated_3[0], calculated_4[0]))
         y_min = int(min(calculated_1[1], calculated_2[1], calculated_3[1], calculated_4[1]))
@@ -163,14 +137,12 @@ def rotate_box(coords, size_original, Matrix=None, theta=None):
         x_max = min(x_max, nW-1)
         y_min = max(0, y_min)
         y_max = min(y_max, nH-1)
-        # print(x_min, y_min, x_max, y_max)
         new_coords.append(tuple((x_min, y_min, x_max, y_max)))
     return new_coords
 
 
 def draw_box(image, coords, pen_width, color=random.choice(colors)):
     for coord in coords:
-        # print(type(coord))
         x_min, y_min, x_max, y_max = coord
         # draw the bounding box
         cv2.rectangle(image, (x_min, y_min), (x_max, y_max),
@@ -178,17 +150,19 @@ def draw_box(image, coords, pen_width, color=random.choice(colors)):
     return image
 
 
-def check_rotation(angle=0.0):
-    image = cv2.imread('00P3800000d2wgPEAQ#Mason List 11-1.jpg', 1)
-    xml_root = et.parse('00P3800000d2wgPEAQ#Mason List 11-1.xml').getroot()
+def check_rotation(xml_file, image_file, angle=0.0):
+    image = cv2.imread(image_file, 1)
+    xml_root = et.parse(xml_file).getroot()
     coords = get_coords(xml_root)
     rows, cols, depth = get_shape(xml_root)
-    new_image = draw_box(image=image, coords=coords, pen_width=2, color=blue)
+    new_image = image #draw_box(image=image, coords=coords, pen_width=2, color=blue)
     M = cv2.getRotationMatrix2D(((rows-1)/2, (cols-1)/2), angle, 1)
     dst = imutils.rotate_bound(new_image, angle)    
     new_coords = rotate_box(coords=coords, size_original=(rows, cols), theta=-angle)
     new_image = draw_box(image=dst, coords=new_coords, pen_width=2, color=red)
     cv2.imshow('new image with bounding box', dst)
+    cv2.waitKey(0)
+    return dst, new_coords
 
 
 def check_translation(x=0.0, y=0.0):
@@ -204,6 +178,68 @@ def check_translation(x=0.0, y=0.0):
     cv2.imshow('new image with bounding box', dst)
 
 
+def rotate(image, xml_root, theta=0.0):
+    coords = get_coords(xml_root)
+    rows, cols, depth = get_shape(xml_root)
+    M = cv2.getRotationMatrix2D(((rows-1)/2, (cols-1)/2), theta, 1)
+    new_image = imutils.rotate_bound(image, theta)    
+    new_coords = rotate_box(coords=coords, size_original=(rows, cols), theta=-theta)
+    return new_image, new_coords
+
+
+def translate(image, xml_root, displacement_tuple=(0.0, 0.0)):
+    x, y = displacement_tuple
+    coords = get_coords(xml_root)
+    rows, cols, depth = get_shape(xml_root)
+    M = np.float32([[1,0,x],[0,1,y]])
+    new_image = cv2.warpAffine(image, M, (rows, cols))
+    new_coords = rotate_box(coords=coords, size_original=(rows, cols), Matrix=M)
+    return new_image, new_coords
+
+
+def perform_augmentation(images_folder, xmls_folder, 
+    im_dest_folder, xmls_dest_folder, bounded_folder=None):
+    xmls_list = os.listdir(xmls_folder)
+    total = len(xmls_list)
+    log('xmls list acquired')
+    for idx, xml in enumerate(xmls_list, 1):
+        name, _ = os.path.splitext(xml)
+        this_xml = os.path.join(xmls_folder, xml)
+        root = et.parse(this_xml).getroot()
+        this_image = os.path.join(images_folder, name+'.jpg')
+        coords = get_coords(root)
+        this_image = cv2.imread(this_image, 1)
+        this_xml = et.parse(this_xml).getroot()
+        log('on image ({} of {})'.format(idx, total), cute=True)
+
+        # rotate the image
+        for i in range(-10, 10, 1):
+            new_image, new_coords = rotate(image=this_image, xml_root=this_xml, theta=float(i))
+            new_name = '{}_{}_rotated'.format(name, str(i))
+            cv2.imwrite(os.path.join(im_dest_folder, new_name+'.jpg'), new_image)
+            new_root = set_coords(root, new_coords)
+            new_root = set_file_name(new_root, new_name+'.xml')
+            new_tree = et.ElementTree(new_root)
+            new_tree.write(os.path.join(xmls_dest_folder, new_name+'.xml'))
+            if bounded_folder:
+                bounded_image = draw_box(image=new_image, coords=new_coords, pen_width=2)
+                cv2.imwrite(os.path.join(bounded_folder, new_name+'.jpg'), bounded_image)
+
+        # translate the image
+        for i in range(-10, 10, 1): 
+            new_image, new_coords = translate(image=this_image, xml_root=this_xml, 
+                displacement_tuple=(float(i), float(i)))
+            new_name = '{}_{}_translated'.format(name, str(i))
+            cv2.imwrite(os.path.join(im_dest_folder, new_name+'.jpg'), new_image)
+            new_root = set_coords(root, new_coords)
+            new_root = set_file_name(new_root, new_name+'.xml')
+            new_tree = et.ElementTree(new_root)
+            new_tree.write(os.path.join(xmls_dest_folder, new_name+'.xml'))
+            if bounded_folder:
+                bounded_image = draw_box(image=new_image, coords=new_coords, pen_width=2)
+                cv2.imwrite(os.path.join(bounded_folder, new_name+'.jpg'), bounded_image)
+
+
 def main():
     parser = argparse.ArgumentParser(description='this file augments obj_det dataset')
     parser.add_argument('--if', '--image_folder', type=str, dest='image_folder',
@@ -214,45 +250,27 @@ def main():
         help='image destination folder')
     parser.add_argument('--xdf', '--xml_dest_folder', type=str, dest='xml_dest_folder',
         help='xml destination folder')
+    parser.add_argument('--bf', '--bounded_dest_folder', type=str, dest='bounded_dest_folder',
+        help='bounded destination folder')
     args = parser.parse_args()
 
     images_folder = args.image_folder 
     xmls_folder = args.xml_folder
     images_dest = args.image_dest_folder
     xmls_dest = args.xml_dest_folder
+    bounded_folder = args.bounded_dest_folder
 
-    # create list of all xmls
-    roots_list = [(xml.replace('.xml', ''), et.parse(os.path.join(xmls_folder, xml)).getroot())
-        for xml in os.listdir(xmls_folder)]
-    log('All xml roots acquired')
-    for idx, (file_name, root) in enumerate(roots_list, 1):
-        log('on image {} ({} of {})'.format(file_name, idx, len(roots_list)), cute=True)
-        x_min = root.find('object').find('bndbox').find('xmin').text
-        y_min = root.find('object').find('bndbox').find('ymin').text
-        x_max = root.find('object').find('bndbox').find('xmax').text
-        y_max = root.find('object').find('bndbox').find('ymax').text
-
-        translate(image=cv2.imread(os.path.join(images_folder, file_name+'.jpg'), 1),
-            coords=(x_min, y_min, x_max, y_max), displacement=10, direction='right')
+    perform_augmentation(images_folder=images_folder, xmls_folder=xmls_folder, 
+        im_dest_folder=images_dest, xmls_dest_folder=xmls_dest, bounded_folder=bounded_folder)
     log()
 
 
 if __name__ == '__main__':
     log('Entering main routine') 
-    i = 0
-    while True:
-        check_translation(float(i), 2.*float(i))
-        # check_rotation(float(i))
-        log('{}'.format(i), clause='rotation#', cute=True)
-        time.sleep(0.001)
-        i = 0 if i is 100 else i + 1
-        if cv2.waitKey(33) == 0xFF & ord('q'):
-            break
-    log()
-
-
-
-
+    '''for i in range(4000):
+                    check_rotation(float(i))
+                    time.sleep(0.001)'''
+    main()
 
 
 
