@@ -16,7 +16,6 @@ import imutils
 import argparse
 import numpy as np
 from log import log
-from scipy.spatial import distance
 import xml.etree.ElementTree as et
 log('Imports successful!')
 random.seed(int(time.time()))
@@ -122,72 +121,70 @@ def rotate_image(im):
 
 
 # CREDITS: Taken from @cristianpb.github.io
-def rotate_box(coord, size_original, theta):
-    (w, h) = size_original
-    (cx, cy) = (w // 2, h // 2)
-    # for i, coord in enumerate(bb):
-    # opencv calculates standard transformation matrix
-    M = cv2.getRotationMatrix2D((cx, cy), theta, 1.0)
-    # Grab  the rotation components of the matrix)
-    cos = np.abs(M[0, 0])
-    sin = np.abs(M[0, 1])
-    # compute the new bounding dimensions of the image
-    nW = int((h * sin) + (w * cos))
-    nH = int((h * cos) + (w * sin))
-    # adjust the rotation matrix to take into account translation
-    M[0, 2] += (nW / 2) - cx
-    M[1, 2] += (nH / 2) - cy
-    #1 Prepare the vector to be transformed
-    v = [coord[0],coord[1],1]
-    # Perform the actual rotation and return the image
-    calculated_1 = np.dot(M,v)
-    #2 Prepare the vector to be transformed
-    v = [coord[2],coord[3],1]
-    # Perform the actual rotation and return the image
-    calculated_2 = np.dot(M,v)
-    #1 Prepare the vector to be transformed
-    v = [coord[4],coord[5],1]
-    # Perform the actual rotation and return the image
-    calculated_3 = np.dot(M,v)
-    #2 Prepare the vector to be transformed
-    v = [coord[6],coord[7],1]
-    # Perform the actual rotation and return the image
-    calculated_4 = np.dot(M,v)
-    x_min = min(calculated_1[0], calculated_2[0], calculated_3[0], calculated_4[0])
-    y_min = min(calculated_1[1], calculated_2[1], calculated_3[1], calculated_4[1])
-    x_max = max(calculated_1[0], calculated_2[0], calculated_3[0], calculated_4[0])
-    y_max = max(calculated_1[1], calculated_2[1], calculated_3[1], calculated_4[1])
-    return (int(x_min), int(y_min), int(x_max), int(y_max))
+def rotate_box(coords, size_original, theta):   
+    all_corners = get_4_corners(coords)
+    new_coords = []
+    for corners in all_corners:
+        (w, h) = size_original
+        (cx, cy) = ((w - 1) // 2, (h - 1) // 2)
+        # for i, coord in enumerate(bb):
+        # opencv calculates standard transformation matrix
+        M = cv2.getRotationMatrix2D((cx, cy), theta, 1.0)
+        # Grab  the rotation components of the matrix)
+        cos = np.abs(M[0, 0])
+        sin = np.abs(M[0, 1])
+        # compute the new bounding dimensions of the image
+        nW = int((h * sin) + (w * cos))
+        nH = int((h * cos) + (w * sin))
+        # adjust the rotation matrix to take into account translation
+        M[0, 2] += (nW / 2) - cx
+        M[1, 2] += (nH / 2) - cy
+        #1 Prepare the vector to be transformed
+        v = [corners[0],corners[1],1]
+        # Perform the actual rotation and return the image
+        calculated_1 = np.dot(M,v)
+        #2 Prepare the vector to be transformed
+        v = [corners[2],corners[3],1]
+        # Perform the actual rotation and return the image
+        calculated_2 = np.dot(M,v)
+        #1 Prepare the vector to be transformed
+        v = [corners[4],corners[5],1]
+        # Perform the actual rotation and return the image
+        calculated_3 = np.dot(M,v)
+        #2 Prepare the vector to be transformed
+        v = [corners[6],corners[7],1]
+        # Perform the actual rotation and return the image
+        calculated_4 = np.dot(M,v)
+        x_min = min(calculated_1[0], calculated_2[0], calculated_3[0], calculated_4[0])
+        y_min = min(calculated_1[1], calculated_2[1], calculated_3[1], calculated_4[1])
+        x_max = max(calculated_1[0], calculated_2[0], calculated_3[0], calculated_4[0])
+        y_max = max(calculated_1[1], calculated_2[1], calculated_3[1], calculated_4[1])
+        new_coords.append((int(x_min), int(y_min), int(x_max), int(y_max)))
+    return new_coords
 
 
-def draw_box(image, coords, pen_width):
+def draw_box(image, coords, pen_width, color=random.choice(colors)):
     for coord in coords:
         # print(type(coord))
         x_min, y_min, x_max, y_max = coord
         # draw the bounding box
         cv2.rectangle(image, (x_min, y_min), (x_max, y_max),
-            random.choice(colors), pen_width)
+            color, pen_width)
     return image
 
 
 def check(angle=0.0):
-    image = cv2.imread('00P3800000cqvteEAA#Amazon 5.jpg', 1)
-    xml_root = et.parse('00P3800000cqvteEAA#Amazon 5.xml').getroot()
+    image = cv2.imread('00P3800000d2wgPEAQ#Mason List 11-1.jpg', 1)
+    xml_root = et.parse('00P3800000d2wgPEAQ#Mason List 11-1.xml').getroot()
     coords = get_coords(xml_root)
     rows, cols, depth = get_shape(xml_root)
     center = ((rows-1)/2, (cols-1)/2)
-
-    new_image = draw_box(image=image, coords=coords, pen_width=2)
-    M = cv2.getRotationMatrix2D((cols/2,rows/2), angle, 1)
-    dst = imutils.rotate_bound(new_image, angle)
-    
-    # image = imutils.rotate_bound(image, angle)
-    all_corners = get_4_corners(coords)
-    new_coords = [rotate_box(coord=corners, size_original=(rows, cols),
-        theta=-angle) for corners in all_corners]
-    new_image = draw_box(image=dst, coords=new_coords, pen_width=2)
+    new_image = draw_box(image=image, coords=coords, pen_width=2, color=blue)
+    M = cv2.getRotationMatrix2D(center, angle, 1)
+    dst = imutils.rotate_bound(new_image, angle)    
+    new_coords = rotate_box(coords=coords, size_original=(rows, cols), theta=-angle)
+    new_image = draw_box(image=dst, coords=new_coords, pen_width=2, color=red)
     cv2.imshow('new image with bounding box', dst)
-    # cv2.waitKey()
 
 
 def main():
@@ -232,7 +229,6 @@ if __name__ == '__main__':
         i += 1
         if cv2.waitKey(33) == 0xFF & ord('q'):
             break
-            
     log()
 
 
