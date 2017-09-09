@@ -31,15 +31,6 @@ pink = (255, 105, 180)
 colors = [blue, green, red, orange, gold, aqua, pink]
 random.shuffle(colors)
 
-def get_angle(A, B, center=(0, 0)):
-    '''x1, x2 = A[0]-center[0], B[0]-center[0]  
-                y1, y2 = A[1]-center[1], B[1]-center[1]  
-                a = math.sqrt(x1**2+y1**2)
-                b = math.sqrt(x2**2+y2**2)
-                dot_product = x1*x2+y1*y2
-                return math.acos(dot_product/(a*b))
-            '''
-    return math.atan2(A[1]-B[1], A[0]-B[0])
 
 # some handy xml functions
 def get_shape(root):
@@ -70,6 +61,12 @@ def set_coords(root, coords):
         y_max = int(object_.find('bndbox').find('ymax').text)
         coords.append(tuple((x_min, y_min, x_max, y_max)))
     return root
+
+
+# 0:x_min, 1:y_min, 2:x_max, 3:y_max
+def get_4_corners(coords):
+    return [tuple((coord[0], coord[1], coord[2], coord[1],
+        coord[2], coord[3], coord[0], coord[3])) for coord in coords]
 
 
 # translates the image by x, as well as the bounding_box in the direction passed as
@@ -123,94 +120,73 @@ def rotate_image(im):
     log()
 
 
-def my_rotate_box(coords, center, angle, M, size):
-    new_coords = []
-    for coord in coords:
-        print(coord)
-        x_min, y_min, x_max, y_max = coord
-        all_4_coords = np.asarray([[x_min, y_min], [x_max, y_min], [x_max, y_max], [x_min, y_max]],
-                                    dtype=np.float32)
-        n_coords = cv2.warpAffine(all_4_coords, M, size)
-        new_coords.append(n_coords)
-
-        # log('{} {} {} {}'.format(x_min, y_min, x_max, y_max), clause='coordinates')
-        new_coords.append(tuple((min(x_min, x_max), min(y_min, y_max),
-            max(x_min, x_max), max(y_min, y_max))))
-
-        '''cx = int(center[0])
-        cy = int(center[1])
-        horizontal = (center[0]+10, center[1])
-        radius = distance.euclidean(tuple(center), tuple((x_min, y_min)))
-        theta = get_angle(horizontal, (x_min, y_min))
-        theta = theta + math.radians(angle)
-        x_min = int(x_min*math.cos(theta))-int(y_min*math.sin(theta))+cx
-        y_min = int(y_min*math.cos(theta))+int(x_min*math.sin(theta))+cy
-        radius = distance.euclidean(tuple(center), tuple((x_max, y_max)))
-        theta = get_angle(horizontal, (x_max, y_max))
-        theta = theta + math.radians(angle)
-        x_max = int(x_max*math.cos(theta))-int(y_max*math.sin(theta))+cx
-        y_max = int(y_max*math.cos(theta))+int(x_max*math.sin(theta))+cy
-        print(x_min, y_min, x_max, y_max)'''
-        '''new_coords.append(tuple((min(x_min, x_max), min(y_min, y_max),
-            max(x_min, x_max), max(y_min, y_max))))'''
-    return new_coords
-
-
 # CREDITS: Taken from @cristianpb.github.io
-def rotate_box(bb, size_original, theta):
-    (h, w) = size_original
+def rotate_box(coord, size_original, theta):
+    (w, h) = size_original
     (cx, cy) = (w // 2, h // 2)
-    new_bb = list(bb)
-    for i, coord in enumerate(bb):
-        # opencv calculates standard transformation matrix
-        M = cv2.getRotationMatrix2D((cx, cy), theta, 1.0)
-        # Grab  the rotation components of the matrix)
-        cos = np.abs(M[0, 0])
-        sin = np.abs(M[0, 1])
-        # compute the new bounding dimensions of the image
-        nW = int((h * sin) + (w * cos))
-        nH = int((h * cos) + (w * sin))
-        # adjust the rotation matrix to take into account translation
-        M[0, 2] += (nW / 2) - cx
-        M[1, 2] += (nH / 2) - cy
-        # Prepare the vector to be transformed
-        v = [coord[0],coord[1],1]
-        # Perform the actual rotation and return the image
-        calculated = np.dot(M,v)
-        new_bb[i] = (calculated[0],calculated[1])
-    return new_bb
+    # for i, coord in enumerate(bb):
+    # opencv calculates standard transformation matrix
+    M = cv2.getRotationMatrix2D((cx, cy), theta, 1.0)
+    # Grab  the rotation components of the matrix)
+    cos = np.abs(M[0, 0])
+    sin = np.abs(M[0, 1])
+    # compute the new bounding dimensions of the image
+    nW = int((h * sin) + (w * cos))
+    nH = int((h * cos) + (w * sin))
+    # adjust the rotation matrix to take into account translation
+    M[0, 2] += (nW / 2) - cx
+    M[1, 2] += (nH / 2) - cy
+    #1 Prepare the vector to be transformed
+    v = [coord[0],coord[1],1]
+    # Perform the actual rotation and return the image
+    calculated_1 = np.dot(M,v)
+    #2 Prepare the vector to be transformed
+    v = [coord[2],coord[3],1]
+    # Perform the actual rotation and return the image
+    calculated_2 = np.dot(M,v)
+    #1 Prepare the vector to be transformed
+    v = [coord[4],coord[5],1]
+    # Perform the actual rotation and return the image
+    calculated_3 = np.dot(M,v)
+    #2 Prepare the vector to be transformed
+    v = [coord[6],coord[7],1]
+    # Perform the actual rotation and return the image
+    calculated_4 = np.dot(M,v)
+    x_min = min(calculated_1[0], calculated_2[0], calculated_3[0], calculated_4[0])
+    y_min = min(calculated_1[1], calculated_2[1], calculated_3[1], calculated_4[1])
+    x_max = max(calculated_1[0], calculated_2[0], calculated_3[0], calculated_4[0])
+    y_max = max(calculated_1[1], calculated_2[1], calculated_3[1], calculated_4[1])
+    return (int(x_min), int(y_min), int(x_max), int(y_max))
 
 
 def draw_box(image, coords, pen_width):
     for coord in coords:
-        x_min, y_min, x_max, y_max = coords[0]
+        # print(type(coord))
+        x_min, y_min, x_max, y_max = coord
         # draw the bounding box
-        cv2.rectangle(image, (x_min, y_min), (x_max, y_max), random.choice(colors), pen_width)
+        cv2.rectangle(image, (x_min, y_min), (x_max, y_max),
+            random.choice(colors), pen_width)
     return image
 
 
-def check(angle=0):
+def check(angle=0.0):
     image = cv2.imread('00P3800000cqvteEAA#Amazon 5.jpg', 1)
     xml_root = et.parse('00P3800000cqvteEAA#Amazon 5.xml').getroot()
     coords = get_coords(xml_root)
     rows, cols, depth = get_shape(xml_root)
     center = ((rows-1)/2, (cols-1)/2)
 
-    image = draw_box(image=image, coords=coords, pen_width=5)
+    new_image = draw_box(image=image, coords=coords, pen_width=2)
     M = cv2.getRotationMatrix2D((cols/2,rows/2), angle, 1)
-    dst = cv2.warpAffine(image, M, (cols,rows))
+    dst = imutils.rotate_bound(new_image, angle)
     
     # image = imutils.rotate_bound(image, angle)
-    new_coords = []
-    for coord in coords:
-        first = rotate_bbox(coords=(coords), center=center,
-            angle=angle, M=M, size=(cols, rows))
-        '''second = rotate_box(coords=(coords[2], coords[3]), center=center,
-                                    angle=angle, M=M, size=(cols, rows))'''
-        new_coords.append(first)                                    
-    new_image = draw_box(image=image, coords=new_coords, pen_width=5)
-    cv2.imshow('new image with bounding box', new_image)
-    cv2.waitKey()
+    all_corners = get_4_corners(coords)
+    new_coords = [rotate_box(coord=corners, size_original=(rows, cols),
+        theta=-angle) for corners in all_corners]
+    new_image = draw_box(image=dst, coords=new_coords, pen_width=2)
+    cv2.imshow('new image with bounding box', dst)
+    # cv2.waitKey()
 
 
 def main():
@@ -247,7 +223,16 @@ def main():
 
 if __name__ == '__main__':
     log('Entering main routine') 
-    check(21)
+    i = 0
+    while True:
+        check(i)
+        log('{}'.format(i), clause='rotation#', cute=True)
+        time.sleep(0.001)
+        i += 1
+        if cv2.waitKey(33) == 0xFF & ord('q'):
+            break
+    log()
+
 
 
 
