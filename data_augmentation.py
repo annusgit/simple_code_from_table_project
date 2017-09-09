@@ -155,11 +155,16 @@ def rotate_box(coords, size_original, Matrix=None, theta=None):
         v = [corners[6],corners[7],1]
         # Perform the actual rotation and return the image
         calculated_4 = np.dot(M,v)
-        x_min = min(calculated_1[0], calculated_2[0], calculated_3[0], calculated_4[0])
-        y_min = min(calculated_1[1], calculated_2[1], calculated_3[1], calculated_4[1])
-        x_max = max(calculated_1[0], calculated_2[0], calculated_3[0], calculated_4[0])
-        y_max = max(calculated_1[1], calculated_2[1], calculated_3[1], calculated_4[1])
-        new_coords.append((int(x_min), int(y_min), int(x_max), int(y_max)))
+        x_min = int(min(calculated_1[0], calculated_2[0], calculated_3[0], calculated_4[0]))
+        y_min = int(min(calculated_1[1], calculated_2[1], calculated_3[1], calculated_4[1]))
+        x_max = int(max(calculated_1[0], calculated_2[0], calculated_3[0], calculated_4[0]))
+        y_max = int(max(calculated_1[1], calculated_2[1], calculated_3[1], calculated_4[1]))
+        x_min = max(0, x_min)
+        x_max = min(x_max, nW-1)
+        y_min = max(0, y_min)
+        y_max = min(y_max, nH-1)
+        # print(x_min, y_min, x_max, y_max)
+        new_coords.append(tuple((x_min, y_min, x_max, y_max)))
     return new_coords
 
 
@@ -231,12 +236,13 @@ def main():
             coords=(x_min, y_min, x_max, y_max), displacement=10, direction='right')
     log()
 
+
 if __name__ == '__main__':
     log('Entering main routine') 
     i = 0
     while True:
-        # check_translation(float(i), 2.*float(i))
-        check_rotation(float(i))
+        check_translation(float(i), 2.*float(i))
+        # check_rotation(float(i))
         log('{}'.format(i), clause='rotation#', cute=True)
         time.sleep(0.001)
         i = 0 if i is 100 else i + 1
