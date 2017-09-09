@@ -121,15 +121,15 @@ def rotate_image(im):
 
 
 # CREDITS: Taken from @cristianpb.github.io
-def rotate_box(coords, size_original, theta):   
+def rotate_box(coords, size_original, Matrix=None, theta=None):   
     all_corners = get_4_corners(coords)
     new_coords = []
     for corners in all_corners:
         (w, h) = size_original
-        (cx, cy) = ((w - 1) // 2, (h - 1) // 2)
+        (cx, cy) = ((w-1) // 2, (h-1) // 2)
         # for i, coord in enumerate(bb):
         # opencv calculates standard transformation matrix
-        M = cv2.getRotationMatrix2D((cx, cy), theta, 1.0)
+        M = cv2.getRotationMatrix2D((cx, cy), theta, 1.0) if Matrix is None else Matrix
         # Grab  the rotation components of the matrix)
         cos = np.abs(M[0, 0])
         sin = np.abs(M[0, 1])
@@ -137,8 +137,8 @@ def rotate_box(coords, size_original, theta):
         nW = int((h * sin) + (w * cos))
         nH = int((h * cos) + (w * sin))
         # adjust the rotation matrix to take into account translation
-        M[0, 2] += (nW / 2) - cx
-        M[1, 2] += (nH / 2) - cy
+        M[0, 2] += ((nW-1) / 2) - cx
+        M[1, 2] += ((nH-1) / 2) - cy
         #1 Prepare the vector to be transformed
         v = [corners[0],corners[1],1]
         # Perform the actual rotation and return the image
@@ -173,16 +173,28 @@ def draw_box(image, coords, pen_width, color=random.choice(colors)):
     return image
 
 
-def check(angle=0.0):
+def check_rotation(angle=0.0):
     image = cv2.imread('00P3800000d2wgPEAQ#Mason List 11-1.jpg', 1)
     xml_root = et.parse('00P3800000d2wgPEAQ#Mason List 11-1.xml').getroot()
     coords = get_coords(xml_root)
     rows, cols, depth = get_shape(xml_root)
-    center = ((rows-1)/2, (cols-1)/2)
     new_image = draw_box(image=image, coords=coords, pen_width=2, color=blue)
-    M = cv2.getRotationMatrix2D(center, angle, 1)
+    M = cv2.getRotationMatrix2D(((rows-1)/2, (cols-1)/2), angle, 1)
     dst = imutils.rotate_bound(new_image, angle)    
     new_coords = rotate_box(coords=coords, size_original=(rows, cols), theta=-angle)
+    new_image = draw_box(image=dst, coords=new_coords, pen_width=2, color=red)
+    cv2.imshow('new image with bounding box', dst)
+
+
+def check_translation(x=0.0, y=0.0):
+    image = cv2.imread('00P3800000d2wgPEAQ#Mason List 11-1.jpg', 1)
+    xml_root = et.parse('00P3800000d2wgPEAQ#Mason List 11-1.xml').getroot()
+    coords = get_coords(xml_root)
+    rows, cols, depth = get_shape(xml_root)
+    new_image = draw_box(image=image, coords=coords, pen_width=2, color=blue)
+    M = np.float32([[1,0,x],[0,1,y]])
+    dst = cv2.warpAffine(image, M, (rows, cols))
+    new_coords = rotate_box(coords=coords, size_original=(rows, cols), Matrix=M)
     new_image = draw_box(image=dst, coords=new_coords, pen_width=2, color=red)
     cv2.imshow('new image with bounding box', dst)
 
@@ -223,10 +235,11 @@ if __name__ == '__main__':
     log('Entering main routine') 
     i = 0
     while True:
-        check(i)
+        # check_translation(float(i), 2.*float(i))
+        check_rotation(float(i))
         log('{}'.format(i), clause='rotation#', cute=True)
         time.sleep(0.001)
-        i += 1
+        i = 0 if i is 100 else i + 1
         if cv2.waitKey(33) == 0xFF & ord('q'):
             break
     log()
