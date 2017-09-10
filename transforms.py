@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 import os
-from pylab import array, uint8
+from matplotlib.pylab import array, uint8
 source = '/home/annus/Desktop/Folders/project/UNLV/staples_separated_eval_data/resized_images'
 destination = '/home/annus/Desktop/Folders/project/UNLV/'
 

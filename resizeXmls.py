@@ -1,5 +1,6 @@
 import xml.etree.ElementTree as et   # for reading the xml files
 import os                            # for using directory paths
+import sys
 from PIL import Image
 import numpy as np
 import cv2
@@ -9,22 +10,22 @@ import time
 random.seed(int(time.time()))
 
 # collect directory paths
-img_source_dir = '/home/annus/Desktop/Folders/full data set Images'
-xml_source_dir = '/home/annus/Desktop/Folders/new staples simplified annotations'
-train_img_dest = '/home/annus/Desktop/Folders/project/staples/staples_separated_train_data/resized_images'
-eval_img_dest = '/home/annus/Desktop/Folders/project/staples/staples_separated_eval_data/resized_images'
-train_transformed_dir = '/home/annus/Desktop/Folders/project/staples/staples_separated_train_data/transformed'
-eval_transformed_dir = '/home/annus/Desktop/Folders/project/staples/staples_separated_eval_data/transformed'
-train_xml_dest = '/home/annus/Desktop/Folders/project/staples/staples_separated_train_data/resized_xmls'
-eval_xml_dest = '/home/annus/Desktop/Folders/project/staples/staples_separated_eval_data/resized_xmls'
+img_source_dir = '/home/annus/Desktop/Folders/proper_staples_data_set/outputs/fixed_imags/'+sys.argv[1]
+xml_source_dir = '/home/annus/Desktop/Folders/proper_staples_data_set/outputs/fixed_imags/'+sys.argv[2]
+train_img_dest = '/home/annus/Desktop/Folders/proper_staples_data_set/outputs/fixed_imags/transformed/train_images'
+eval_img_dest = '/home/annus/Desktop/Folders/proper_staples_data_set/outputs/fixed_imags/transformed/eval_images'
+train_transformed_dir = '/home/annus/Desktop/Folders/proper_staples_data_set/outputs/fixed_imags/transformed/transformed_images_train'
+eval_transformed_dir = '/home/annus/Desktop/Folders/proper_staples_data_set/outputs/fixed_imags/transformed/transformed_images_eval'
+train_xml_dest = '/home/annus/Desktop/Folders/proper_staples_data_set/outputs/fixed_imags/transformed/train_xmls'
+eval_xml_dest = '/home/annus/Desktop/Folders/proper_staples_data_set/outputs/fixed_imags/transformed/eval_xmls'
 
 Size = 400, 400
 xml_list = os.listdir(xml_source_dir)
 image_list = [file for file in os.listdir(img_source_dir) if not file.endswith('.xml')]
 xml_list = [file for file in os.listdir(xml_source_dir) if file.endswith('.xml')]
-random.shuffle(xml_list)
+random.shuffle(xml_list) # very important part
 total = len(xml_list)
-split = 800
+split = int(0.8*total)
 print('total xmls = {}'.format(total))
 i = 0
 
@@ -59,7 +60,7 @@ for file_name in xml_list:
             continue
 
         # remove spaces from names
-        new_name = 'image' + str(i)
+        new_name = 'image_'+sys.argv[1]+'_{}'.format(i)
 
         # resize the image
         PILimg = Image.open(this_img)
@@ -133,11 +134,15 @@ for file_name in xml_list:
         print(this_img, ' not found')    
 
     # verbose
-    print(i ,'in training data', ' done') if i <= split else print(i, 'in eval data')
+    verbose = '{} in training data'.format(i) 
+    if i > split: verbose = '{} in eval data'.format(i-split) 
+    print('\b'*len(verbose), end='', flush=True)
+    print(verbose, end='')
+    if i is split: 
+        print('\b'*len(verbose), end='', flush=True)
+        print('')
 
-    if i == 40:
-        pass
-
+print('')
 
 
         
