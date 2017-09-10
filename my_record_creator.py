@@ -34,12 +34,13 @@ import tensorflow as tf
 from object_detection.utils import dataset_util
 from object_detection.utils import label_map_util
 
-data_dir = '/home/annus/Desktop/Folders/proper_staples_data_set/outputs/fixed_imags/transformed'
-image_subdirectory = sys.argv[1]
+data_dir = '/home/annus/Desktop/Folders/project/augmentation_testing/training_data'
+image_subdirectory = os.path.join(data_dir, sys.argv[1])
 annotations_dir = os.path.join(data_dir, sys.argv[2])
-label_map_path = '/home/annus/Desktop/Folders/tensorFlow/models/object_detection/table_label_map.pbtxt'
-output_path = sys.argv[3]
+label_map_path = 'table_label_map.pbtxt'
+output_path = os.path.join(data_dir, sys.argv[3])
 ignore_difficult_instances = True
+
 
 def dict_to_tf_example(data,
                        dataset_directory,
@@ -137,11 +138,12 @@ def main():
   label_map_dict = label_map_util.get_label_map_dict(label_map_path)
   train_writer = tf.python_io.TFRecordWriter(output_path)
   total_ex = len(xml_list)
-  for idx, this_xml in enumerate(xml_list):
-    verbose = 'On image {} of {}'.format(idx+1, total_ex)
-    print('\b'*len(verbose), end='')
-    sys.stdout.flush() # flush=True in python3
-    print(verbose, end='')
+  for idx, this_xml in enumerate(xml_list, 1):
+    if idx % 100 is 0:
+      verbose = 'On image {} of {}'.format(idx, total_ex)
+      print('\b'*len(verbose), end='')
+      sys.stdout.flush() # flush=True in python3
+      print(verbose, end='')
     path = os.path.join(annotations_dir, this_xml)
     #######################################################################
     if os.path.isfile(path):

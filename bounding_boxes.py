@@ -1,6 +1,7 @@
 import xml.etree.ElementTree as et   # for reading the xml files
 import cv2
 import os                            # for using directory paths
+import sys
 import random
 import time                          # for seeding the random number generator
 import math
@@ -61,7 +62,7 @@ def my_own_rotation_routine(original_size, point, angle):
     print (new_point)
     return new_point
 
-def draw_box(image, xml, original_size, angle, isrotated=False):
+def draw_box(image, xml):
     if os.path.isfile(xml):
         tree = et.parse(xml)
         root = tree.getroot()
@@ -72,38 +73,29 @@ def draw_box(image, xml, original_size, angle, isrotated=False):
             x_max = int(object_.find('bndbox').find('xmax').text)
             y_max = int(object_.find('bndbox').find('ymax').text)
             
-            # define the bounding box
-            # print(x_min, y_min, x_max, y_max)
-            bb = [(x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)]
-            if isrotated: 
-                x_min, y_min = my_own_rotation_routine(original_size, (x_min, y_min), angle)
-                x_max, y_max = my_own_rotation_routine(original_size, (x_max, y_max), angle)
-
-            # (x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max) = new_bb
             # draw the bounding box
-            cv2.rectangle(image, (int(x_min), int(y_min)), (int(x_max), int(y_max)), blue, 4)
+            cv2.rectangle(image, (x_min, y_min), (x_max, y_max), blue, 4)
             return image
 
 def main():
     # collect directory paths
-    img_dir = '/home/annus/Desktop/Folders/project/staples/staples_separated_train_data/resized_images'
-    xml_dir = '/home/annus/Desktop/Folders/project/staples/staples_separated_train_data/resized_xmls'
-    dest_dir = '/home/annus/Desktop/Folders/project/staples/staples_separated_train_data/check_boxes'
+    img_dir = sys.argv[1]
+    xml_dir = sys.argv[2]
+    dest_dir = sys.argv[3]
 
     total = len(os.listdir(img_dir))
     print('total images= ', total)
     i = 0
 
     for file_name in os.listdir(img_dir):
-      
         i += 1
-        
         # remove the filename extenstion of '.png'
         name_without_extention, _ = os.path.splitext(file_name)
-
+        verbose = '{} / {} done'.format(i, total)
+        print('\b'*len(verbose), end='', flush=True)
+        print(verbose, end='')
         # read the image, without any change
         im = cv2.imread(img_dir + '/' + file_name, -1)
-
         # find the coordinates of b_box from the corresponding xml file
         this_xml = xml_dir + '/' + name_without_extention + '.xml'
         if os.path.isfile(this_xml):
@@ -115,16 +107,13 @@ def main():
                 y_min = int(object_.find('bndbox').find('ymin').text)
                 x_max = int(object_.find('bndbox').find('xmax').text)
                 y_max = int(object_.find('bndbox').find('ymax').text)
-            
                 # draw the bounding box and put in the folder
                 color = random.choice(colors)
-                cv2.rectangle(im, (x_min, y_min), (x_max, y_max), color, 1)
+                cv2.rectangle(im, (x_min, y_min), (x_max, y_max), color, 2)
             cv2.imwrite(dest_dir + '/' + 'bounded_' + file_name, im)
-            
         # verbose
-        if i % 10 == 0:
-            print(i ,'/', total, ' done')
-        
+    print('')
 
-
+if __name__ == '__main__':
+    main()
 
