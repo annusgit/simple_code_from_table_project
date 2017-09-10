@@ -197,29 +197,57 @@ def translate(image, xml_root, displacement_tuple=(0.0, 0.0)):
     return new_image, new_coords
 
 
-def perform_augmentation(images_folder, xmls_folder, 
-    im_dest_folder, xmls_dest_folder, rot=True, trans=True, bounded_folder=None):
+def perform_augmentation(images_folder, xmls_folder, im_dest_folder,
+    xmls_dest_folder, rot=True, trans=True, bounded_folder=None):
     xmls_list = os.listdir(xmls_folder)
     total = len(xmls_list)
     log('xmls list acquired')
+    stroke_width = 2
+    upper_limit = 50
+    lower_limit = 20
+    angle_min = 1
+    angle_max = 7
     for idx, xml in enumerate(xmls_list, 1):
         name, _ = os.path.splitext(xml)
-        this_xml = os.path.join(xmls_folder, xml)
-        root = et.parse(this_xml).getroot()
-        this_image = os.path.join(images_folder, name+'.jpg')
-        if not os.path.exists(this_image): 
+        xml_path = os.path.join(xmls_folder, xml)
+        image_path = os.path.join(images_folder, name+'.jpg')
+        if not os.path.exists(image_path): 
             log('image: {} not found'.format('{}.jpg'.format(name)))
             continue
+        this_tree = et.parse(xml_path)
+        this_xml = this_tree.getroot()
+        root = this_tree.getroot()
+        original_image = cv2.imread(image_path, 1)
+        this_image = original_image.copy()
         coords = get_coords(root)
-        this_image = cv2.imread(this_image, 1)
-        this_xml = et.parse(this_xml).getroot()
+        original_coords = get_coords(root)
         log('on image ({} of {})'.format(idx, total), cute=True)
 
-        # rotate the image
+        # save the original one as it is
+        new_image = this_image.copy()
+        new_coords = list(coords)
+        new_xml = this_tree.getroot()
+        new_root = this_tree.getroot()
+
+        new_name = 'original_{}'.format(name)
+        cv2.imwrite(os.path.join(im_dest_folder, new_name+'.jpg'), new_image)
+        new_root = set_file_name(new_xml, new_name+'.xml')
+        new_tree = et.ElementTree(new_root)
+        new_tree.write(os.path.join(xmls_dest_folder, new_name+'.xml'))
+        if bounded_folder:
+            bounded_image = draw_box(image=new_image, coords=new_coords, 
+                pen_width=stroke_width, color=random.choice(colors))
+            cv2.imwrite(os.path.join(bounded_folder, new_name+'.jpg'), bounded_image)
+
+        # rotate the image in 2 directions
         if rotate:
-            for i in range(-10, 10, 5):
-                new_image, new_coords = rotate(image=this_image, xml_root=this_xml, theta=float(i))
-                new_name = 'rot_{}_{}'.format(name, str(i))
+            theta_1_list = random.sample(range(angle_min, angle_max), 4)
+            theta_2_list = random.sample(range(angle_min, angle_max), 4)
+
+            for theta_1, theta_2 in zip(theta_1_list, theta_2_list):
+                theta = theta_1
+                new_image, new_coords = rotate(image=this_image, xml_root=this_xml, theta=float(theta))
+                new_name = 'rot_{}_{}'.format(name, str(theta))
                 cv2.imwrite(os.path.join(im_dest_folder, new_name+'.jpg'), new_image)
                 new_root = set_coords(root, new_coords)
                 new_root = set_file_name(new_root, new_name+'.xml')
@@ -227,15 +255,33 @@ def perform_augmentation(images_folder, xmls_folder,
                 new_tree.write(os.path.join(xmls_dest_folder, new_name+'.xml'))
                 if bounded_folder:
                     bounded_image = draw_box(image=new_image, coords=new_coords, 
-                        pen_width=4, color=random.choice(colors))
+                        pen_width=stroke_width, color=random.choice(colors))
                     cv2.imwrite(os.path.join(bounded_folder, new_name+'.jpg'), bounded_image)
 
-        # translate the image
+                theta = theta_2
+                new_image, new_coords = rotate(image=this_image, xml_root=this_xml, theta=float(-theta))
+                new_name = 'rot_{}_{}'.format(name, str(-theta))
+                cv2.imwrite(os.path.join(im_dest_folder, new_name+'.jpg'), new_image)
+                new_root = set_coords(root, new_coords)
+                new_root = set_file_name(new_root, new_name+'.xml')
+                new_tree = et.ElementTree(new_root)
+                new_tree.write(os.path.join(xmls_dest_folder, new_name+'.xml'))
+                if bounded_folder:
+                    bounded_image = draw_box(image=new_image, coords=new_coords, 
+                        pen_width=stroke_width, color=random.choice(colors))
+                    cv2.imwrite(os.path.join(bounded_folder, new_name+'.jpg'), bounded_image)
+
+        # translate the image in all 4 directions
         if translate:
-            for i in range(-50, 50, 50): 
+            x_list = random.sample(range(lower_limit, upper_limit), 3)
+            y_list = random.sample(range(lower_limit, upper_limit), 3)
+
+            for this_x, this_y in zip(x_list, y_list):
+                x = this_x
+                y = this_y
                 new_image, new_coords = translate(image=this_image, xml_root=this_xml, 
-                    displacement_tuple=(float(i), float(i)))
-                new_name = 'trans_1_{}_{}'.format(name, str(i))
+                    displacement_tuple=(float(x), float(y)))
+                new_name = 'trans_1_{}_{}_{}'.format(name, str(x), str(y))
                 cv2.imwrite(os.path.join(im_dest_folder, new_name+'.jpg'), new_image)
                 new_root = set_coords(root, new_coords)
                 new_root = set_file_name(new_root, new_name+'.xml')
@@ -243,12 +289,12 @@ def perform_augmentation(images_folder, xmls_folder,
                 new_tree.write(os.path.join(xmls_dest_folder, new_name+'.xml'))
                 if bounded_folder:
                     bounded_image = draw_box(image=new_image, coords=new_coords, 
-                        pen_width=4, color=random.choice(colors))
+                        pen_width=stroke_width, color=random.choice(colors))
                     cv2.imwrite(os.path.join(bounded_folder, new_name+'.jpg'), bounded_image)
 
                 new_image, new_coords = translate(image=this_image, xml_root=this_xml, 
-                    displacement_tuple=(float(i), float(-i)))
-                new_name = 'trans_2_{}_{}'.format(name, str(i))
+                    displacement_tuple=(float(x), float(-y)))
+                new_name = 'trans_2_{}_{}_{}'.format(name, str(x), str(-y))
                 cv2.imwrite(os.path.join(im_dest_folder, new_name+'.jpg'), new_image)
                 new_root = set_coords(root, new_coords)
                 new_root = set_file_name(new_root, new_name+'.xml')
@@ -256,12 +302,12 @@ def perform_augmentation(images_folder, xmls_folder,
                 new_tree.write(os.path.join(xmls_dest_folder, new_name+'.xml'))
                 if bounded_folder:
                     bounded_image = draw_box(image=new_image, coords=new_coords, 
-                        pen_width=4, color=random.choice(colors))
+                        pen_width=stroke_width, color=random.choice(colors))
                     cv2.imwrite(os.path.join(bounded_folder, new_name+'.jpg'), bounded_image)
 
                 new_image, new_coords = translate(image=this_image, xml_root=this_xml, 
-                    displacement_tuple=(float(-i), float(i)))
-                new_name = 'trans_3_{}_{}'.format(name, str(i))
+                    displacement_tuple=(float(-x), float(y)))
+                new_name = 'trans_3_{}_{}_{}'.format(name, str(-x), str(y))
                 cv2.imwrite(os.path.join(im_dest_folder, new_name+'.jpg'), new_image)
                 new_root = set_coords(root, new_coords)
                 new_root = set_file_name(new_root, new_name+'.xml')
@@ -269,12 +315,12 @@ def perform_augmentation(images_folder, xmls_folder,
                 new_tree.write(os.path.join(xmls_dest_folder, new_name+'.xml'))
                 if bounded_folder:
                     bounded_image = draw_box(image=new_image, coords=new_coords, 
-                        pen_width=4, color=random.choice(colors))
+                        pen_width=stroke_width, color=random.choice(colors))
                     cv2.imwrite(os.path.join(bounded_folder, new_name+'.jpg'), bounded_image)
 
                 new_image, new_coords = translate(image=this_image, xml_root=this_xml, 
-                    displacement_tuple=(float(-i), float(-i)))
-                new_name = 'trans_4_{}_{}'.format(name, str(i))
+                    displacement_tuple=(float(-x), float(-y)))
+                new_name = 'trans_4_{}_{}_{}'.format(name, str(-x), str(-y))
                 cv2.imwrite(os.path.join(im_dest_folder, new_name+'.jpg'), new_image)
                 new_root = set_coords(root, new_coords)
                 new_root = set_file_name(new_root, new_name+'.xml')
@@ -282,8 +328,9 @@ def perform_augmentation(images_folder, xmls_folder,
                 new_tree.write(os.path.join(xmls_dest_folder, new_name+'.xml'))
                 if bounded_folder:
                     bounded_image = draw_box(image=new_image, coords=new_coords, 
-                        pen_width=2, color=random.choice(colors))
+                        pen_width=stroke_width, color=random.choice(colors))
                     cv2.imwrite(os.path.join(bounded_folder, new_name+'.jpg'), bounded_image)
+        time.sleep(0.01)
 
 def main():
     parser = argparse.ArgumentParser(description='this file augments obj_det dataset')
@@ -307,14 +354,13 @@ def main():
 
     perform_augmentation(images_folder=images_folder, xmls_folder=xmls_folder, 
         im_dest_folder=images_dest, xmls_dest_folder=xmls_dest, bounded_folder=bounded_folder)
-    log()
 
 
+'''for i in range(4000):
+                check_rotation(float(i))
+                time.sleep(0.001)'''
 if __name__ == '__main__':
     log('Entering main routine') 
-    '''for i in range(4000):
-                    check_rotation(float(i))
-                    time.sleep(0.001)'''
     main()
 
 
