@@ -5,7 +5,7 @@ Program: data_augmentation.py
 Date: 07-09-17
 Usage: Meant for doing some handy data augmentation on small object detection datasets 
 Calling: Pass it the images, annotations, their destination folders and one more folder
-         for seeing the results
+         for saving the results
 """
 
 import os 
@@ -138,10 +138,12 @@ def rotate_box(coords, size_original, Matrix=None, theta=None):
         y_min = int(min(calculated_1[1], calculated_2[1], calculated_3[1], calculated_4[1]))
         x_max = int(max(calculated_1[0], calculated_2[0], calculated_3[0], calculated_4[0]))
         y_max = int(max(calculated_1[1], calculated_2[1], calculated_3[1], calculated_4[1]))
-        x_min = max(0, x_min)
-        x_max = min(x_max, nW-1)
-        y_min = max(0, y_min)
-        y_max = min(y_max, nH-1)
+        # don't push these values to the limit; We have spared 2 pixels; This causes 
+        # issues in some implementations of detection algorithms
+        x_min = max(2, x_min)
+        x_max = min(x_max, nW-1-2)
+        y_min = max(2, y_min)
+        y_max = min(y_max, nH-1-2)
         new_coords.append(tuple((x_min, y_min, x_max, y_max)))
     return new_coords
 
@@ -336,7 +338,7 @@ def perform_augmentation(images_folder, xmls_folder, im_dest_folder,
                     bounded_image = draw_box(image=new_image, coords=new_coords, 
                         pen_width=stroke_width, color=random.choice(colors))
                     cv2.imwrite(os.path.join(bounded_folder, new_name+'.jpg'), bounded_image)
-        time.sleep(0.01)
+        # time.sleep(0.01)
 
 def main():
     parser = argparse.ArgumentParser(description='this file augments obj_det dataset')
